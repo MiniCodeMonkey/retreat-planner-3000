@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Venue;
 use DOMElement;
 use Illuminate\Support\Collection;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
 
 class MrMrsSmithImporter extends VenueSourceImporter
 {
@@ -68,13 +70,19 @@ class MrMrsSmithImporter extends VenueSourceImporter
 
         foreach ($crawler->filter('.boxStyling-content h3') as $contentBox) {
             if (str_contains($contentBox->textContent, 'Rooms')) {
-                $venue->rooms = $this->getSiblingNumeric($contentBox);
-            } elseif (str_contains($contentBox->textContent, 'Floors')) {
-                $venue->floors = $this->getSiblingNumeric($contentBox);
+                $val = $this->getSiblingNumeric($contentBox);
+
+                if ($val === 0) {
+                    $val = $this->getRoomCountFromText($contentBox->parentNode->textContent);
+                }
+
+                if ($val !== 0) {
+                    $venue->rooms = $val;
+                    $venue->save();
+                    break;
+                }
             }
         }
-
-        $venue->save();
 
         $this->saveImages($venue, $crawler->filter('.slick-track img'));
     }
@@ -87,5 +95,21 @@ class MrMrsSmithImporter extends VenueSourceImporter
         }
 
         return (int) $node->nextSibling->nextSibling->textContent;
+    }
+
+    private function getRoomCountFromText(string $textContent): int
+    {
+        $response = Prism::text()
+            ->using(Provider::Anthropic, 'claude-3-5-sonnet-20241022')
+            ->withPrompt(<<<'EOF'
+Given the following text that describes a hotel room, extract the number of rooms mentioned in the text.
+Return the number of rooms as an integer and NOTHING else.
+
+The text is:
+EOF
+.$textContent)
+            ->asText();
+
+        return (int) $response->text;
     }
 }

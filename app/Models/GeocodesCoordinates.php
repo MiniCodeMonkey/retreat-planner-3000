@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Exception;
 use Geocodio;
 
 trait GeocodesCoordinates
@@ -21,7 +22,12 @@ trait GeocodesCoordinates
 
     protected function handleCoordinatesChanged(): void
     {
-        $response = Geocodio::reverse([$this->latitude, $this->longitude]);
+        try {
+            $response = Geocodio::reverse([$this->latitude, $this->longitude]);
+        } catch (Exception) {
+            return;
+        }
+
         $firstResult = $response['results'][0] ?? null;
 
         $this->address = $firstResult['formatted_address'] ?? null;
@@ -34,7 +40,12 @@ trait GeocodesCoordinates
 
     protected function handleAddressChanged(): void
     {
-        $response = Geocodio::geocode($this->address);
+        try {
+            $response = Geocodio::geocode($this->address);
+        } catch (Exception) {
+            return;
+        }
+
         $firstResult = $response['results'][0] ?? null;
 
         $this->latitude = $firstResult['location']['lat'] ?? null;
