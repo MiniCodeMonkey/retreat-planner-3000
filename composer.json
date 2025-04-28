@@ -10,8 +10,13 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "geocodio/geocodio-library-php": "^2.1",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/tinker": "^2.10.1",
+        "prism-php/prism": "^0.65.1",
+        "symfony/browser-kit": "^7.2",
+        "symfony/dom-crawler": "^7.2",
+        "symfony/http-client": "^7.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
