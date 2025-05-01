@@ -85,6 +85,8 @@ class MrMrsSmithImporter extends VenueSourceImporter
         }
 
         $this->saveImages($venue, $crawler->filter('.slick-track img'));
+
+        sleep(1); // to avoid rate limiting
     }
 
     private function getSiblingNumeric(DOMElement $node): int

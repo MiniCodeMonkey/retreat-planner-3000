@@ -8,3 +8,7 @@ The goal of this project is to build a simple map that lists potential retreat l
 - [X] Basic map with markers
 - [ ] Filter by room size and whatever else information we have
 - [ ] Distance to major airports / metro area
+
+## Credits
+
+Airport data sourced from [airports-streamlined](https://github.com/nerik/airports-streamlined)

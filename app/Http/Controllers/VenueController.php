@@ -16,7 +16,7 @@ class VenueController extends Controller
     public function list(): JsonResponse
     {
         $venues = Venue::with('images')->get();
-        
+
         return response()->json($venues);
     }
 }
