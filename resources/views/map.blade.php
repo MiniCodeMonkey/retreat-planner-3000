@@ -208,17 +208,6 @@
                             </p>
                         </div>
 
-                        <!-- Airport info -->
-                        <template x-if="selectedVenue.nearest_airport_code && selectedVenue.nearest_airport_distance">
-                            <div>
-                                <h3 class="text-sm uppercase text-gray-500 font-medium">Nearest Airport</h3>
-                                <p class="text-gray-700 font-medium text-emerald-600">
-                                    <span
-                                        x-text="`${selectedVenue.nearest_airport_code} (${Math.round(selectedVenue.nearest_airport_distance)} miles)`"></span>
-                                </p>
-                            </div>
-                        </template>
-
                         <!-- Nearby airports -->
                         <template x-if="selectedVenue.airports && selectedVenue.airports.length > 1">
                             <div>
@@ -658,120 +647,21 @@
                 // Clear previous connections
                 this.clearAirportConnections();
 
-                // Create a source for the nearest airport connection (if any)
+                // Find the nearest airport for styling purposes
                 const nearestAirport = venue.airports.find(a => a && a.pivot && a.pivot.is_nearest);
-                if (nearestAirport && nearestAirport.longitude && nearestAirport.latitude &&
-                    typeof nearestAirport.pivot.distance_miles !== 'undefined' && nearestAirport.iata_code) {
-                    // Add nearest airport connection (red line)
-                    if (this.map.getSource('nearest-airport-connection')) {
-                        this.map.removeSource('nearest-airport-connection');
-                    }
 
-                    this.map.addSource('nearest-airport-connection', {
-                        type: 'geojson',
-                        data: {
-                            type: 'Feature',
-                            geometry: {
-                                type: 'LineString',
-                                coordinates: [
-                                    [venue.longitude, venue.latitude],
-                                    [nearestAirport.longitude, nearestAirport.latitude]
-                                ]
-                            },
-                            properties: {
-                                distance: nearestAirport.pivot.distance_miles,
-                                airport: nearestAirport.iata_code
-                            }
-                        }
-                    });
+                // Create a source for ALL airports (including the nearest one)
+                const allAirports = venue.airports ? [...venue.airports] : [];
+                
+                // Keep separate reference to nearby airports (non-nearest) for logging
+                const nearbyAirports = allAirports.filter(a => a && a.pivot && !a.pivot.is_nearest);
 
-                    // Add nearest airport connection layer if the source exists
-                    if (this.map.getLayer('nearest-airport-line')) {
-                        this.map.removeLayer('nearest-airport-line');
-                    }
+                // Continue with showing connections for ALL airports
+                if (allAirports.length > 0) {
+                    console.log(`Adding connections to ${allAirports.length} airports (${nearbyAirports.length} nearby + nearest)`);
 
-                    // Only add the layer if we successfully added the source
-                    if (this.map.getSource('nearest-airport-connection')) {
-                        this.map.addLayer({
-                            id: 'nearest-airport-line',
-                            type: 'line',
-                            source: 'nearest-airport-connection',
-                            layout: {
-                                'line-join': 'round',
-                                'line-cap': 'round',
-                                'visibility': 'visible'
-                            },
-                            paint: {
-                                'line-color': '#10b981', // emerald-500
-                                'line-width': 2.5,
-                                'line-dasharray': [2, 1]
-                            },
-                            minzoom: 0,
-                            maxzoom: 22
-                        });
-                    }
-
-                    // Add distance label for nearest airport
-                    if (this.map.getLayer('nearest-airport-distance-label')) {
-                        this.map.removeLayer('nearest-airport-distance-label');
-                    }
-
-                    // Calculate the midpoint for the label
-                    const nearestMidPoint = [
-                        (venue.longitude + nearestAirport.longitude) / 2,
-                        (venue.latitude + nearestAirport.latitude) / 2
-                    ];
-
-                    // Create a GeoJSON source for the label
-                    if (this.map.getSource('nearest-airport-label-source')) {
-                        this.map.removeSource('nearest-airport-label-source');
-                    }
-
-                    // Add direct label on the line instead of a separate point
-                    if (this.map.getLayer('nearest-airport-distance-label')) {
-                        this.map.removeLayer('nearest-airport-distance-label');
-                    }
-
-                    // Add symbol layer directly on the line connection
-                    if (this.map.getSource('nearest-airport-connection')) {
-                        this.map.addLayer({
-                            id: 'nearest-airport-distance-label',
-                            type: 'symbol',
-                            source: 'nearest-airport-connection',
-                            layout: {
-                                'symbol-placement': 'line-center',
-                                'text-field': `${Math.round(nearestAirport.pivot.distance_miles)} miles`,
-                                'text-font': ['Noto Sans Bold'],
-                                'text-size': 14,
-                                'text-allow-overlap': true,
-                                'text-ignore-placement': true,
-                                'text-keep-upright': true,
-                                'text-offset': [0, -0.5],
-                                'text-anchor': 'center',
-                                'text-max-angle': 30,
-                                'visibility': 'visible'
-                            },
-                            paint: {
-                                'text-color': '#10b981', // emerald-500
-                                'text-halo-color': '#ffffff',
-                                'text-halo-width': 2
-                            },
-                            minzoom: 0,
-                            maxzoom: 22
-                        });
-                    }
-                }
-
-                // Create a source for other nearby airports
-                const nearbyAirports = venue.airports
-                    ? venue.airports.filter(a => a && a.pivot && !a.pivot.is_nearest)
-                    : [];
-
-                if (nearbyAirports.length > 0) {
-                    console.log(`Adding ${nearbyAirports.length} nearby airport connections`);
-
-                    // Create connections for other nearby airports
-                    const features = nearbyAirports.map(airport => {
+                    // Create connections for ALL airports
+                    const features = allAirports.map(airport => {
                         if (!airport || !airport.pivot || typeof airport.pivot.distance_miles === 'undefined' ||
                             !airport.longitude || !airport.latitude || !airport.iata_code) {
                             console.error('Invalid airport data for line:', JSON.stringify({
@@ -795,19 +685,21 @@
                             },
                             properties: {
                                 distance: airport.pivot.distance_miles,
-                                airport: airport.iata_code
+                                distance_text: `${Math.round(airport.pivot.distance_miles)} miles`,
+                                airport: airport.iata_code,
+                                is_nearest: !!airport.pivot.is_nearest
                             }
                         };
                     }).filter(feature => feature !== null);
 
-                    // Add nearby airports connections
-                    if (this.map.getSource('nearby-airports-connections')) {
-                        this.map.removeSource('nearby-airports-connections');
+                    // Add all airports connections
+                    if (this.map.getSource('all-airports-connections')) {
+                        this.map.removeSource('all-airports-connections');
                     }
 
                     // Only add the source and layer if we have valid features
                     if (features && features.length > 0) {
-                        this.map.addSource('nearby-airports-connections', {
+                        this.map.addSource('all-airports-connections', {
                             type: 'geojson',
                             data: {
                                 type: 'FeatureCollection',
@@ -815,23 +707,32 @@
                             }
                         });
 
-                        // Add nearby airports connection layer
-                        if (this.map.getLayer('nearby-airports-lines')) {
-                            this.map.removeLayer('nearby-airports-lines');
+                        // Add all airports connection layer
+                        if (this.map.getLayer('all-airports-lines')) {
+                            this.map.removeLayer('all-airports-lines');
                         }
 
                         this.map.addLayer({
-                            id: 'nearby-airports-lines',
+                            id: 'all-airports-lines',
                             type: 'line',
-                            source: 'nearby-airports-connections',
+                            source: 'all-airports-connections',
                             layout: {
                                 'line-join': 'round',
                                 'line-cap': 'round',
                                 'visibility': 'visible'
                             },
                             paint: {
-                                'line-color': '#4A8DF6',
-                                'line-width': 2,
+                                // Use conditional styling to make the nearest airport line green
+                                'line-color': [
+                                    'case',
+                                    ['==', ['get', 'is_nearest'], true], '#10b981', // emerald-500 for nearest
+                                    '#4A8DF6' // blue for other airports
+                                ],
+                                'line-width': [
+                                    'case',
+                                    ['==', ['get', 'is_nearest'], true], 2.5, // thicker for nearest
+                                    2 // normal for other airports
+                                ],
                                 'line-dasharray': [1, 1]
                             },
                             minzoom: 0,
@@ -839,25 +740,21 @@
                         });
                     }
 
-                    // Add distance labels for nearby airports
-                    if (this.map.getLayer('nearby-airports-distance-labels')) {
-                        this.map.removeLayer('nearby-airports-distance-labels');
+                    // Add distance labels for all airports
+                    if (this.map.getLayer('all-airports-distance-labels')) {
+                        this.map.removeLayer('all-airports-distance-labels');
                     }
 
                     // Place distance labels directly on the line connections
-                    if (this.map.getSource('nearby-airports-connections')) {
+                    if (this.map.getSource('all-airports-connections')) {
                         this.map.addLayer({
-                            id: 'nearby-airports-distance-labels',
+                            id: 'all-airports-distance-labels',
                             type: 'symbol',
-                            source: 'nearby-airports-connections',
+                            source: 'all-airports-connections',
                             layout: {
                                 'symbol-placement': 'line-center',
-                                'text-field': [
-                                    'concat',
-                                    ['round', ['get', 'distance']],
-                                    ' miles'
-                                ],
-                                'text-font': ['Noto Sans Medium'],
+                                'text-field': ['get', 'distance_text'],
+                                'text-font': ['Noto Sans Bold'],
                                 'text-size': 12,
                                 'text-allow-overlap': true,
                                 'text-ignore-placement': true,
@@ -868,7 +765,11 @@
                                 'visibility': 'visible'
                             },
                             paint: {
-                                'text-color': '#4A8DF6',
+                                'text-color': [
+                                    'case',
+                                    ['==', ['get', 'is_nearest'], true], '#10b981', // emerald-500 for nearest
+                                    '#4A8DF6' // blue for other airports
+                                ],
                                 'text-halo-color': '#ffffff',
                                 'text-halo-width': 2
                             },
@@ -880,26 +781,15 @@
             },
 
             clearAirportConnections() {
-                // Remove nearest airport connection and its label
-                if (this.map.getLayer('nearest-airport-distance-label')) {
-                    this.map.removeLayer('nearest-airport-distance-label');
+                // Remove all airports connections and their labels
+                if (this.map.getLayer('all-airports-distance-labels')) {
+                    this.map.removeLayer('all-airports-distance-labels');
                 }
-                if (this.map.getLayer('nearest-airport-line')) {
-                    this.map.removeLayer('nearest-airport-line');
+                if (this.map.getLayer('all-airports-lines')) {
+                    this.map.removeLayer('all-airports-lines');
                 }
-                if (this.map.getSource('nearest-airport-connection')) {
-                    this.map.removeSource('nearest-airport-connection');
-                }
-
-                // Remove nearby airports connections and their labels
-                if (this.map.getLayer('nearby-airports-distance-labels')) {
-                    this.map.removeLayer('nearby-airports-distance-labels');
-                }
-                if (this.map.getLayer('nearby-airports-lines')) {
-                    this.map.removeLayer('nearby-airports-lines');
-                }
-                if (this.map.getSource('nearby-airports-connections')) {
-                    this.map.removeSource('nearby-airports-connections');
+                if (this.map.getSource('all-airports-connections')) {
+                    this.map.removeSource('all-airports-connections');
                 }
             },
 

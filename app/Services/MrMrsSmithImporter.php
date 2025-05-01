@@ -28,6 +28,7 @@ class MrMrsSmithImporter extends VenueSourceImporter
                     'longitude' => $location->hotel->map_long,
                 ]);
 
+                $this->fetchImages($venue);
                 $this->fetchDetails($venue);
             });
         }
@@ -45,22 +46,22 @@ class MrMrsSmithImporter extends VenueSourceImporter
 
         $response = $this->httpClient->request('GET', $url);
         $content = $response->getContent();
-
         $json = json_decode($content);
 
         return collect($json);
     }
 
-    public function saveImages(Venue $venue, $images): void
+    public function fetchImages(Venue $venue): void
     {
+        $response = $this->httpClient->request('GET', 'https://www.mrandmrssmith.com/get-images?search_id='.$venue->external_id.'&type=property&field=gallery_images&size=hotel_gallery716&crop=hotel_gallery');
+        $content = $response->getContent();
+        $json = json_decode($content);
+
         $venue->images()->delete();
-        foreach ($images as $image) {
-            $url = $image->getAttribute('src');
-            if ($url) {
-                $venue->images()->create([
-                    'url' => $url,
-                ]);
-            }
+        foreach ($json as $image) {
+            $venue->images()->create([
+                'url' => $image->url_ssl,
+            ]);
         }
     }
 
@@ -83,8 +84,6 @@ class MrMrsSmithImporter extends VenueSourceImporter
                 }
             }
         }
-
-        $this->saveImages($venue, $crawler->filter('.slick-track img'));
 
         sleep(1); // to avoid rate limiting
     }
