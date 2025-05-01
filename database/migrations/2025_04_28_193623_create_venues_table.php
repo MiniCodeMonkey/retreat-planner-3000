@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('external_id');
             $table->string('url');
             $table->string('name')->nullable();
-            $table->decimal('rooms')->nullable();
-            $table->decimal('floors')->nullable();
+            $table->integer('rooms')->nullable();
+            $table->integer('floors')->nullable();
             $table->decimal('latitude', 10, 8)->nullable();
             $table->decimal('longitude', 11, 8)->nullable();
             $table->string('address')->nullable();

@@ -28,8 +28,8 @@ class ImportLocations extends Command
      */
     public function handle()
     {
-        // (new SLHImporter)->import();
-        // (new SelectRegistryImporter)->import();
+        (new SLHImporter)->import();
+        (new SelectRegistryImporter)->import();
         (new MrMrsSmithImporter)->import();
     }
 }

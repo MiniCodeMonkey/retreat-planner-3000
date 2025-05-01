@@ -54,9 +54,27 @@
 </head>
 <body>
 <div id="map" x-data="mapApp()">
-    <div class="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg w-64">
+    <!-- Left sidebar: Filters -->
+    <div class="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg w-72">
         <div class="space-y-3">
-            <h3 class="text-lg font-medium text-gray-900">Filter Venues</h3>
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">Filter Venues</h3>
+                <div class="flex items-center">
+                    <span
+                        class="px-2 py-1 bg-gray-100 rounded-md text-sm font-medium flex items-center"
+                        :class="getResultsCountClass()"
+                    >
+                        <span x-text="`${venues.length}/${allVenues.length} results`"></span>
+                        <template x-if="venues.length === 0 && allVenues.length > 0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-1 h-4 w-4 text-amber-500" fill="none"
+                                 viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </template>
+                    </span>
+                </div>
+            </div>
             <div>
                 <label for="min-rooms" class="block text-sm font-medium text-gray-700">Minimum Rooms</label>
                 <div class="mt-1">
@@ -65,7 +83,7 @@
                         id="min-rooms"
                         x-model="minRooms"
                         min="0"
-                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        class="p-2 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         placeholder="Minimum rooms"
                     >
                 </div>
@@ -78,25 +96,164 @@
                         id="max-rooms"
                         x-model="maxRooms"
                         min="0"
-                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        class="p-2 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         placeholder="Maximum rooms"
                     >
                 </div>
             </div>
-            <button
-                type="button"
-                @click="applyFilter()"
-                class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-                Apply Filter
-            </button>
-            <button
-                type="button"
-                @click="resetFilter()"
-                class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-                Reset
-            </button>
+            <div>
+                <label for="max-airport-distance" class="block text-sm font-medium text-gray-700">Max Airport Distance
+                    (miles)</label>
+                <div class="mt-1">
+                    <input
+                        type="number"
+                        id="max-airport-distance"
+                        x-model="maxAirportDistance"
+                        min="0"
+                        class="p-2 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        placeholder="Max distance to airport"
+                    >
+                </div>
+            </div>
+            <div class="flex items-center">
+                <input
+                    type="checkbox"
+                    id="hide-filtered"
+                    x-model="hideFilteredVenues"
+                    @change="updateFilteredVenuesVisibility()"
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                >
+                <label for="hide-filtered" class="ml-2 block text-sm text-gray-700">
+                    Hide filtered venues
+                </label>
+            </div>
+            <div class="flex space-x-2">
+                <button
+                    type="button"
+                    @click="applyFilter()"
+                    class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    Apply Filter
+                </button>
+                <button
+                    type="button"
+                    @click="resetFilter()"
+                    class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right drawer: Venue details -->
+    <div
+        class="fixed top-0 right-0 z-20 h-full w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out overflow-y-auto"
+        :class="selectedVenue ? 'translate-x-0' : 'translate-x-full'"
+    >
+        <div class="p-4">
+            <template x-if="selectedVenue">
+                <div>
+                    <!-- Venue header with close button -->
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold" x-text="selectedVenue.name"></h2>
+                        <button
+                            @click="closeVenuePanel()"
+                            class="text-gray-500 hover:text-gray-700 focus:outline-none"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                 stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Venue images -->
+                    <div class="mb-4">
+                        <template x-if="selectedVenue.images && selectedVenue.images.length > 0">
+                            <div class="flex overflow-x-auto gap-2 pb-2">
+                                <template x-for="image in selectedVenue.images" :key="image.id">
+                                    <img
+                                        :src="image.url"
+                                        :alt="selectedVenue.name"
+                                        class="h-24 w-32 object-cover rounded-md flex-shrink-0"
+                                    />
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Venue details -->
+                    <div class="space-y-3">
+                        <!-- Location -->
+                        <div>
+                            <h3 class="text-sm uppercase text-gray-500 font-medium">Location</h3>
+                            <p class="text-gray-700">
+                                <span x-text="selectedVenue.address || ''"></span>
+                                <span x-if="selectedVenue.city" x-text="selectedVenue.city + ','"></span>
+                                <span x-text="selectedVenue.state || ''"></span>
+                                <span x-text="selectedVenue.country || ''"></span>
+                            </p>
+                        </div>
+
+                        <!-- Room info -->
+                        <div>
+                            <h3 class="text-sm uppercase text-gray-500 font-medium">Venue Details</h3>
+                            <p class="text-gray-700">
+                                <span x-text="`Rooms: ${selectedVenue.rooms || 'N/A'}`"></span>
+                                <template x-if="selectedVenue.floors">
+                                    <span x-text="` • Floors: ${selectedVenue.floors}`"></span>
+                                </template>
+                            </p>
+                        </div>
+
+                        <!-- Airport info -->
+                        <template x-if="selectedVenue.nearest_airport_code && selectedVenue.nearest_airport_distance">
+                            <div>
+                                <h3 class="text-sm uppercase text-gray-500 font-medium">Nearest Airport</h3>
+                                <p class="text-gray-700 font-medium text-emerald-600">
+                                    <span
+                                        x-text="`${selectedVenue.nearest_airport_code} (${Math.round(selectedVenue.nearest_airport_distance)} miles)`"></span>
+                                </p>
+                            </div>
+                        </template>
+
+                        <!-- Nearby airports -->
+                        <template x-if="selectedVenue.airports && selectedVenue.airports.length > 1">
+                            <div>
+                                <h3 class="text-sm uppercase text-gray-500 font-medium">Nearby Airports</h3>
+                                <ul class="text-sm text-gray-700 space-y-1 mt-1">
+                                    <template x-for="airport in getSortedAirports(selectedVenue)" :key="airport.id">
+                                        <li>
+                                            <span
+                                                :class="airport.pivot.is_nearest ? 'font-semibold text-emerald-600' : ''"
+                                                x-text="`${airport.iata_code} - ${airport.municipality || 'Unknown'} (${Math.round(airport.pivot.distance_miles)} miles)`"
+                                            ></span>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </template>
+
+                        <!-- External link -->
+                        <div class="pt-2">
+                            <a
+                                :href="selectedVenue.url"
+                                target="_blank"
+                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                View Details
+                                <svg xmlns="http://www.w3.org/2000/svg" class="ml-1 h-4 w-4" fill="none"
+                                     viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 </div>
@@ -108,9 +265,12 @@
             venues: [],
             allVenues: [],
             markers: [],
-            minRooms: 0,
-            maxRooms: null,
+            minRooms: 15,
+            maxRooms: 25,
+            maxAirportDistance: 50,
+            hideFilteredVenues: false,
             airportsLoaded: false,
+            selectedVenue: null,
 
             init() {
                 this.loadSavedFilter();
@@ -129,16 +289,35 @@
                 if (savedMaxRooms !== null) {
                     this.maxRooms = parseInt(savedMaxRooms, 10);
                 }
+
+                const savedMaxAirportDistance = localStorage.getItem('maxAirportDistance');
+                if (savedMaxAirportDistance !== null) {
+                    this.maxAirportDistance = parseInt(savedMaxAirportDistance, 10);
+                }
+
+                const hideFilteredVenues = localStorage.getItem('hideFilteredVenues');
+                if (hideFilteredVenues !== null) {
+                    this.hideFilteredVenues = hideFilteredVenues === 'true';
+                }
             },
 
             saveFilter() {
                 // Save the current filter values to localStorage
                 localStorage.setItem('minRooms', this.minRooms);
+
                 if (this.maxRooms !== null) {
                     localStorage.setItem('maxRooms', this.maxRooms);
                 } else {
                     localStorage.removeItem('maxRooms');
                 }
+
+                if (this.maxAirportDistance !== null) {
+                    localStorage.setItem('maxAirportDistance', this.maxAirportDistance);
+                } else {
+                    localStorage.removeItem('maxAirportDistance');
+                }
+
+                localStorage.setItem('hideFilteredVenues', this.hideFilteredVenues);
             },
 
             initMap() {
@@ -204,13 +383,20 @@
                                 'text-font': ['Noto Sans Bold'],
                                 'text-offset': [0, 1],
                                 'text-anchor': 'top',
-                                'text-size': 10
+                                'text-size': 10,
+                                'visibility': 'visible',
+                                'icon-ignore-placement': true,
+                                'text-ignore-placement': true,
+                                'symbol-z-order': 'source',
+                                'symbol-sort-key': 1
                             },
                             paint: {
                                 'text-color': '#404040',
                                 'text-halo-color': '#fff',
                                 'text-halo-width': 2
-                            }
+                            },
+                            minzoom: 0,
+                            maxzoom: 22
                         });
 
                         // Add click event to show airport info
@@ -262,26 +448,31 @@
                 this.allVenues = this.allVenues.map(venue => {
                     // Determine if venue matches filter criteria
                     let matchesFilter = true;
-                    
+
                     // Check if venue has room information
                     if (!venue.rooms) {
                         matchesFilter = false;
                     }
-                    
+
                     // Check minimum rooms requirement
                     if (matchesFilter && this.minRooms && venue.rooms < this.minRooms) {
                         matchesFilter = false;
                     }
-                    
+
                     // Check maximum rooms requirement
                     if (matchesFilter && this.maxRooms && venue.rooms > this.maxRooms) {
                         matchesFilter = false;
                     }
-                    
+
+                    // Check maximum airport distance requirement
+                    if (matchesFilter && this.maxAirportDistance && venue.nearest_airport_distance > this.maxAirportDistance) {
+                        matchesFilter = false;
+                    }
+
                     // Add matchesFilter flag to venue object
-                    return { ...venue, matchesFilter };
+                    return {...venue, matchesFilter};
                 });
-                
+
                 // Active venues are the ones matching the filter
                 this.venues = this.allVenues.filter(venue => venue.matchesFilter);
 
@@ -293,16 +484,17 @@
             },
 
             resetFilter() {
-                this.minRooms = 0;
-                this.maxRooms = null;
-                localStorage.removeItem('minRooms');
-                localStorage.removeItem('maxRooms');
-                
-                // Mark all venues as matching
-                this.allVenues = this.allVenues.map(venue => ({ ...venue, matchesFilter: true }));
-                this.venues = this.allVenues;
-                
-                this.addMarkersToMap();
+                this.minRooms = 15;
+                this.maxRooms = 25;
+                this.maxAirportDistance = 50;
+                this.hideFilteredVenues = false;
+                localStorage.setItem('minRooms', this.minRooms);
+                localStorage.setItem('maxRooms', this.maxRooms);
+                localStorage.setItem('maxAirportDistance', this.maxAirportDistance);
+                localStorage.setItem('hideFilteredVenues', this.hideFilteredVenues);
+
+                // Apply the default filters
+                this.applyFilter();
             },
 
             addMarkersToMap() {
@@ -366,7 +558,12 @@
                         'circle-stroke-width': 1,
                         'circle-stroke-color': '#ffffff',
                         'circle-opacity': 0.6
-                    }
+                    },
+                    layout: {
+                        'visibility': this.hideFilteredVenues ? 'none' : 'visible'
+                    },
+                    minzoom: 0,
+                    maxzoom: 22
                 });
 
                 // Add a circle layer for active venues (blue)
@@ -380,31 +577,42 @@
                         'circle-color': '#4A8DF6',
                         'circle-stroke-width': 2,
                         'circle-stroke-color': '#ffffff'
-                    }
+                    },
+                    layout: {
+                        'visibility': 'visible'
+                    },
+                    minzoom: 0,
+                    maxzoom: 22
                 });
 
-                // Add click event to show popups for active venues
+                // Add click event to show venue details in side panel for active venues
                 this.map.on('click', 'venue-points-active', (e) => {
                     const coordinates = e.features[0].geometry.coordinates.slice();
-                    const popupContent = e.features[0].properties.popup;
+                    const venueId = e.features[0].properties.id;
 
-                    // Create popup
-                    new window.maplibregl.Popup()
-                        .setLngLat(coordinates)
-                        .setHTML(popupContent)
-                        .addTo(this.map);
+                    // Find the venue data
+                    const venue = this.allVenues.find(v => v.id === venueId);
+
+                    // Show connections to nearby airports
+                    this.showAirportConnections(venue, coordinates);
+
+                    // Show venue in side panel
+                    this.selectedVenue = venue;
                 });
-                
-                // Add click event to show popups for filtered venues (grey)
+
+                // Add click event to show venue details in side panel for filtered venues (grey)
                 this.map.on('click', 'venue-points-filtered', (e) => {
                     const coordinates = e.features[0].geometry.coordinates.slice();
-                    const popupContent = e.features[0].properties.popup;
+                    const venueId = e.features[0].properties.id;
 
-                    // Create popup
-                    new window.maplibregl.Popup()
-                        .setLngLat(coordinates)
-                        .setHTML(popupContent)
-                        .addTo(this.map);
+                    // Find the venue data
+                    const venue = this.allVenues.find(v => v.id === venueId);
+
+                    // Show connections to nearby airports
+                    this.showAirportConnections(venue, coordinates);
+
+                    // Show venue in side panel
+                    this.selectedVenue = venue;
                 });
 
                 // Change cursor on hover for active venues
@@ -415,7 +623,7 @@
                 this.map.on('mouseleave', 'venue-points-active', () => {
                     this.map.getCanvas().style.cursor = '';
                 });
-                
+
                 // Change cursor on hover for filtered venues
                 this.map.on('mouseenter', 'venue-points-filtered', () => {
                     this.map.getCanvas().style.cursor = 'pointer';
@@ -424,6 +632,309 @@
                 this.map.on('mouseleave', 'venue-points-filtered', () => {
                     this.map.getCanvas().style.cursor = '';
                 });
+
+                // Clear airport connections and close panel when clicking on map (not on a venue or airport)
+                this.map.on('click', (e) => {
+                    // Check if the click is on a venue or airport feature
+                    const features = this.map.queryRenderedFeatures(e.point, {
+                        layers: ['venue-points-active', 'venue-points-filtered', 'airports-layer']
+                    });
+
+                    // If not clicking on a feature, clear connections and close panel
+                    if (features.length === 0) {
+                        this.clearAirportConnections();
+                        this.closeVenuePanel();
+                    }
+                });
+            },
+
+            showAirportConnections(venue, coordinates) {
+                // If venue doesn't have airports or longitude/latitude, return
+                if (!venue || !venue.airports || !venue.latitude || !venue.longitude) {
+                    this.clearAirportConnections();
+                    return;
+                }
+
+                // Clear previous connections
+                this.clearAirportConnections();
+
+                // Create a source for the nearest airport connection (if any)
+                const nearestAirport = venue.airports.find(a => a && a.pivot && a.pivot.is_nearest);
+                if (nearestAirport && nearestAirport.longitude && nearestAirport.latitude &&
+                    typeof nearestAirport.pivot.distance_miles !== 'undefined' && nearestAirport.iata_code) {
+                    // Add nearest airport connection (red line)
+                    if (this.map.getSource('nearest-airport-connection')) {
+                        this.map.removeSource('nearest-airport-connection');
+                    }
+
+                    this.map.addSource('nearest-airport-connection', {
+                        type: 'geojson',
+                        data: {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: [
+                                    [venue.longitude, venue.latitude],
+                                    [nearestAirport.longitude, nearestAirport.latitude]
+                                ]
+                            },
+                            properties: {
+                                distance: nearestAirport.pivot.distance_miles,
+                                airport: nearestAirport.iata_code
+                            }
+                        }
+                    });
+
+                    // Add nearest airport connection layer if the source exists
+                    if (this.map.getLayer('nearest-airport-line')) {
+                        this.map.removeLayer('nearest-airport-line');
+                    }
+
+                    // Only add the layer if we successfully added the source
+                    if (this.map.getSource('nearest-airport-connection')) {
+                        this.map.addLayer({
+                            id: 'nearest-airport-line',
+                            type: 'line',
+                            source: 'nearest-airport-connection',
+                            layout: {
+                                'line-join': 'round',
+                                'line-cap': 'round',
+                                'visibility': 'visible'
+                            },
+                            paint: {
+                                'line-color': '#10b981', // emerald-500
+                                'line-width': 2.5,
+                                'line-dasharray': [2, 1]
+                            },
+                            minzoom: 0,
+                            maxzoom: 22
+                        });
+                    }
+
+                    // Add distance label for nearest airport
+                    if (this.map.getLayer('nearest-airport-distance-label')) {
+                        this.map.removeLayer('nearest-airport-distance-label');
+                    }
+
+                    // Calculate the midpoint for the label
+                    const nearestMidPoint = [
+                        (venue.longitude + nearestAirport.longitude) / 2,
+                        (venue.latitude + nearestAirport.latitude) / 2
+                    ];
+
+                    // Create a GeoJSON source for the label
+                    if (this.map.getSource('nearest-airport-label-source')) {
+                        this.map.removeSource('nearest-airport-label-source');
+                    }
+
+                    // Add direct label on the line instead of a separate point
+                    if (this.map.getLayer('nearest-airport-distance-label')) {
+                        this.map.removeLayer('nearest-airport-distance-label');
+                    }
+
+                    // Add symbol layer directly on the line connection
+                    if (this.map.getSource('nearest-airport-connection')) {
+                        this.map.addLayer({
+                            id: 'nearest-airport-distance-label',
+                            type: 'symbol',
+                            source: 'nearest-airport-connection',
+                            layout: {
+                                'symbol-placement': 'line-center',
+                                'text-field': `${Math.round(nearestAirport.pivot.distance_miles)} miles`,
+                                'text-font': ['Noto Sans Bold'],
+                                'text-size': 14,
+                                'text-allow-overlap': true,
+                                'text-ignore-placement': true,
+                                'text-keep-upright': true,
+                                'text-offset': [0, -0.5],
+                                'text-anchor': 'center',
+                                'text-max-angle': 30,
+                                'visibility': 'visible'
+                            },
+                            paint: {
+                                'text-color': '#10b981', // emerald-500
+                                'text-halo-color': '#ffffff',
+                                'text-halo-width': 2
+                            },
+                            minzoom: 0,
+                            maxzoom: 22
+                        });
+                    }
+                }
+
+                // Create a source for other nearby airports
+                const nearbyAirports = venue.airports
+                    ? venue.airports.filter(a => a && a.pivot && !a.pivot.is_nearest)
+                    : [];
+
+                if (nearbyAirports.length > 0) {
+                    console.log(`Adding ${nearbyAirports.length} nearby airport connections`);
+
+                    // Create connections for other nearby airports
+                    const features = nearbyAirports.map(airport => {
+                        if (!airport || !airport.pivot || typeof airport.pivot.distance_miles === 'undefined' ||
+                            !airport.longitude || !airport.latitude || !airport.iata_code) {
+                            console.error('Invalid airport data for line:', JSON.stringify({
+                                airport_id: airport?.id,
+                                iata_code: airport?.iata_code,
+                                pivot: airport?.pivot,
+                                longitude: airport?.longitude,
+                                latitude: airport?.latitude
+                            }));
+                            return null;
+                        }
+
+                        return {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: [
+                                    [venue.longitude, venue.latitude],
+                                    [airport.longitude, airport.latitude]
+                                ]
+                            },
+                            properties: {
+                                distance: airport.pivot.distance_miles,
+                                airport: airport.iata_code
+                            }
+                        };
+                    }).filter(feature => feature !== null);
+
+                    // Add nearby airports connections
+                    if (this.map.getSource('nearby-airports-connections')) {
+                        this.map.removeSource('nearby-airports-connections');
+                    }
+
+                    // Only add the source and layer if we have valid features
+                    if (features && features.length > 0) {
+                        this.map.addSource('nearby-airports-connections', {
+                            type: 'geojson',
+                            data: {
+                                type: 'FeatureCollection',
+                                features: features
+                            }
+                        });
+
+                        // Add nearby airports connection layer
+                        if (this.map.getLayer('nearby-airports-lines')) {
+                            this.map.removeLayer('nearby-airports-lines');
+                        }
+
+                        this.map.addLayer({
+                            id: 'nearby-airports-lines',
+                            type: 'line',
+                            source: 'nearby-airports-connections',
+                            layout: {
+                                'line-join': 'round',
+                                'line-cap': 'round',
+                                'visibility': 'visible'
+                            },
+                            paint: {
+                                'line-color': '#4A8DF6',
+                                'line-width': 2,
+                                'line-dasharray': [1, 1]
+                            },
+                            minzoom: 0,
+                            maxzoom: 22
+                        });
+                    }
+
+                    // Add distance labels for nearby airports
+                    if (this.map.getLayer('nearby-airports-distance-labels')) {
+                        this.map.removeLayer('nearby-airports-distance-labels');
+                    }
+
+                    // Place distance labels directly on the line connections
+                    if (this.map.getSource('nearby-airports-connections')) {
+                        this.map.addLayer({
+                            id: 'nearby-airports-distance-labels',
+                            type: 'symbol',
+                            source: 'nearby-airports-connections',
+                            layout: {
+                                'symbol-placement': 'line-center',
+                                'text-field': [
+                                    'concat',
+                                    ['round', ['get', 'distance']],
+                                    ' miles'
+                                ],
+                                'text-font': ['Noto Sans Medium'],
+                                'text-size': 12,
+                                'text-allow-overlap': true,
+                                'text-ignore-placement': true,
+                                'text-offset': [0, -0.5],
+                                'text-anchor': 'center',
+                                'text-keep-upright': true,
+                                'text-max-angle': 30,
+                                'visibility': 'visible'
+                            },
+                            paint: {
+                                'text-color': '#4A8DF6',
+                                'text-halo-color': '#ffffff',
+                                'text-halo-width': 2
+                            },
+                            minzoom: 0,
+                            maxzoom: 22
+                        });
+                    }
+                }
+            },
+
+            clearAirportConnections() {
+                // Remove nearest airport connection and its label
+                if (this.map.getLayer('nearest-airport-distance-label')) {
+                    this.map.removeLayer('nearest-airport-distance-label');
+                }
+                if (this.map.getLayer('nearest-airport-line')) {
+                    this.map.removeLayer('nearest-airport-line');
+                }
+                if (this.map.getSource('nearest-airport-connection')) {
+                    this.map.removeSource('nearest-airport-connection');
+                }
+
+                // Remove nearby airports connections and their labels
+                if (this.map.getLayer('nearby-airports-distance-labels')) {
+                    this.map.removeLayer('nearby-airports-distance-labels');
+                }
+                if (this.map.getLayer('nearby-airports-lines')) {
+                    this.map.removeLayer('nearby-airports-lines');
+                }
+                if (this.map.getSource('nearby-airports-connections')) {
+                    this.map.removeSource('nearby-airports-connections');
+                }
+            },
+
+            closeVenuePanel() {
+                this.selectedVenue = null;
+                this.clearAirportConnections();
+            },
+
+            updateFilteredVenuesVisibility() {
+                if (this.map && this.map.getLayer('venue-points-filtered')) {
+                    this.map.setLayoutProperty('venue-points-filtered', 'visibility',
+                        this.hideFilteredVenues ? 'none' : 'visible');
+                    // Save setting to localStorage
+                    localStorage.setItem('hideFilteredVenues', this.hideFilteredVenues);
+                }
+            },
+
+            getSortedAirports(venue) {
+                if (!venue || !venue.airports) return [];
+
+                return [...venue.airports].sort((a, b) => {
+                    return a.pivot.distance_miles - b.pivot.distance_miles;
+                });
+            },
+
+            getResultsCountClass() {
+                if (this.venues.length === 0) {
+                    return 'text-red-600 border border-red-200 bg-red-50';
+                } else if (this.venues.length < 5) {
+                    return 'text-amber-600 border border-amber-200 bg-amber-50';
+                } else if (this.venues.length === this.allVenues.length) {
+                    return 'text-gray-600 bg-gray-100';
+                } else {
+                    return 'text-emerald-600 border border-emerald-200 bg-emerald-50';
+                }
             },
 
             createPopupContent(venue) {
@@ -436,7 +947,39 @@
                     });
                     imagesHtml += '</div>';
                 }
-                
+
+                // Add airport information to popup
+                let airportInfo = '';
+
+                // Add nearest airport info
+                if (venue.nearest_airport_code && venue.nearest_airport_distance) {
+                    airportInfo = `<p><strong>Nearest Airport:</strong> ${venue.nearest_airport_code} (${Math.round(venue.nearest_airport_distance)} miles)</p>`;
+                }
+
+                // Add nearby airports list
+                if (venue.airports && venue.airports.length > 0) {
+                    const sortedAirports = [...venue.airports].sort((a, b) => a.pivot.distance_miles - b.pivot.distance_miles);
+
+                    if (sortedAirports.length > 1) {
+                        airportInfo += '<p><strong>Nearby Airports:</strong></p>';
+                        airportInfo += '<ul class="text-sm mt-1 pl-4">';
+
+                        sortedAirports.slice(0, 5).forEach(airport => {
+                            const isNearest = airport.pivot.is_nearest;
+                            const distance = Math.round(airport.pivot.distance_miles);
+                            const style = isNearest ? 'font-semibold text-emerald-600' : '';
+
+                            airportInfo += `<li class="${style}">${airport.iata_code} - ${airport.municipality || 'Unknown'} (${distance} miles)</li>`;
+                        });
+
+                        if (sortedAirports.length > 5) {
+                            airportInfo += `<li>+ ${sortedAirports.length - 5} more airports within 50 miles</li>`;
+                        }
+
+                        airportInfo += '</ul>';
+                    }
+                }
+
                 let filterStatus = '';
                 if (venue.matchesFilter === false) {
                     filterStatus = '<p class="text-red-500 font-medium">This venue does not match current filter criteria</p>';
@@ -448,6 +991,7 @@
                             <div class="venue-details">
                                 <p>${venue.address || ''} ${venue.city || ''} ${venue.state || ''} ${venue.country || ''}</p>
                                 <p>Rooms: ${venue.rooms || 'N/A'}</p>
+                                ${airportInfo}
                                 ${filterStatus}
                                 <p><a href="${venue.url}" target="_blank">View Details</a></p>
                             </div>

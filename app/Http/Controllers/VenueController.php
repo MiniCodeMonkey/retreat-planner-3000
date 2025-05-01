@@ -15,7 +15,10 @@ class VenueController extends Controller
 
     public function list(): JsonResponse
     {
-        $venues = Venue::with('images')->get();
+        $venues = Venue::with(['images', 'airports' => function($query) {
+            $query->select(['airports.id', 'airports.iata_code', 'airports.municipality', 'airports.country', 'airports.latitude', 'airports.longitude'])
+                  ->withPivot(['distance_miles', 'is_nearest']);
+        }])->get();
 
         return response()->json($venues);
     }
